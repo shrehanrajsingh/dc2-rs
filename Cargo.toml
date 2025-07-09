@@ -1,0 +1,10 @@
+[package]
+name = "dc2-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.38", features = ["full"] }
+sha2 = "0.10"
+hex = "0.4"
+indicatif = "0.17"
