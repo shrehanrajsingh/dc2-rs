@@ -1,2 +1,5 @@
 /target
 /dump
+
+Thumbs.db
+.DS_Store
