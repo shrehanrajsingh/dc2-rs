@@ -1,4 +1,4 @@
-# DC2-rs: Rust Bindings for Peer-to-Peer File Transfer
+# DC2-rs: Rust Bindings for a Peer-to-Peer File Transfer Protocol
 
 [![Rust](https://img.shields.io/badge/language-Rust-orange)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
