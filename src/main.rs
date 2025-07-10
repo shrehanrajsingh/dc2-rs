@@ -1,12 +1,13 @@
 use crate::discovery::start_discovery;
 
-/**
- * dc2-rs
- * Welcome to DC2-RS, a peer-to-peer miscellaneous protocol.
- * DC2-RS turns your device into a Node (Peer) that can initiate
- * file transfers and request the same from other Nodes (Peers)
- *
- */
+/* dc2-rs
+ * Welcome to DC2-RS, a peer-to-peer protocol for file transfers.
+ * DC2-RS enables your device to operate as a node (peer) capable of both initiating
+ * and receiving file transfers from other nodes.
+ * Each node requires at least two available ports:
+ * - One for the server endpoint, which handles incoming file transfer requests (seeding).
+ * - One for the client endpoint, which initiates file download requests to other nodes' server endpoints.
+*/
 mod client;
 mod discovery;
 mod server;
