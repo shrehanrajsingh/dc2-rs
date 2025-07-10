@@ -1,10 +1,11 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::{fs, vec};
 
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha256, Sha256VarCore};
 use tokio::fs::{File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::net::TcpListener;
+use tokio::stream;
 
 pub async fn run_server() {
     let listener = TcpListener::bind("0.0.0.0:8000").await.unwrap();
@@ -24,6 +25,17 @@ pub async fn run_server() {
 
         tokio::spawn(async move {
             const END_CHUNK: u32 = u32::MAX;
+
+            /* recieve manifest */
+            let chunk_count = socket.read_u32().await.unwrap();
+            let mut manifest = HashMap::new();
+
+            for _ in 0..chunk_count {
+                let index = socket.read_u32().await.unwrap();
+                let mut hash = [0u8; 32];
+                socket.read_exact(&mut hash).await.unwrap();
+                manifest.insert(index, hash);
+            }
 
             /* metadata */
             // 1. Receive filename length
@@ -60,6 +72,34 @@ pub async fn run_server() {
                 .open(filename.to_string())
                 .await
                 .unwrap();
+
+            let mut missing_chunks = Vec::new();
+            let mut buf = vec![0u8; chunk_size as usize];
+
+            for (&index, expected_hash) in &manifest {
+                let offset = index as u64 * chunk_size as u64;
+                file.seek(std::io::SeekFrom::Start(offset)).await.unwrap();
+
+                let n = file.read(&mut buf).await.unwrap();
+                if n == 0 {
+                    missing_chunks.push(index);
+                    continue;
+                }
+
+                let mut hasher = Sha256::new();
+                hasher.update(&buf[..n]);
+                let actual = hasher.finalize();
+
+                if actual.as_slice() != expected_hash {
+                    missing_chunks.push(index);
+                }
+            }
+
+            // Send missing chunks
+            socket.write_u32(missing_chunks.len() as u32).await.unwrap();
+            for &idx in &missing_chunks {
+                socket.write_u32(idx).await.unwrap();
+            }
 
             file.set_len(filesize).await.unwrap();
             let mut received_chunks = HashSet::new();
