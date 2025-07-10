@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::process::exit;
 use std::{fs, vec};
 
 use sha2::{Digest, Sha256, Sha256VarCore};
@@ -7,10 +8,11 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::stream;
 
-pub async fn run_server() {
-    let listener = TcpListener::bind("0.0.0.0:8000").await.unwrap();
+pub async fn run_server(port: u16) {
+    let listener;
+    listener = TcpListener::bind(("0.0.0.0", port)).await.unwrap();
 
-    println!("server listening on port 8000");
+    println!("server listening on port {}", port);
 
     loop {
         let (mut socket, addr) = match listener.accept().await {

@@ -31,7 +31,7 @@ cargo build
 Initialize the server component with the following command:
 
 ```bash
-cargo run -- server
+cargo run -- server 8000
 ```
 
 ### File Transfer Operation
