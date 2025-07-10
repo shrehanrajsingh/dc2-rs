@@ -5,11 +5,11 @@
 
 ## Overview
 
-**DC2-rs** is a robust Peer-to-Peer (P2P) framework designed for efficient file transfer across networks without requiring middleware infrastructure. The system employs a sophisticated chunking mechanism that divides files into 4KB segments, ensuring fault-tolerant transfers that can be seamlessly resumed from the last valid state in case of interruption.
+**DC2-rs** is a Peer-to-Peer (P2P) framework designed for efficient file transfer across networks without requiring middleware infrastructure. The system employs a chunking mechanism that divides files into 4KB segments, ensuring fault-tolerant transfers that can be seamlessly resumed from the last valid state in case of interruption.
 
 ## Architecture
 
-The framework implements advanced networking protocols and efficient data handling techniques. For comprehensive information regarding the architectural design and protocol standards:
+The framework implements advanced networking protocols and efficient data handling techniques. For information regarding the architectural design and protocol standards:
 
 > Please refer to [Protocols and Standards](PROTOCOL.md) for detailed documentation on architecture and implementation standards.
 
