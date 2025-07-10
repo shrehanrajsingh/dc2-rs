@@ -10,11 +10,19 @@ use tokio::time::{sleep, Duration};
 const DISCOVERY_PORT: u16 = 45678;
 const BROADCAST_ADDR: &str = "255.255.255.255:45678";
 
+fn get_local_ip() -> IpAddr {
+    let sock = std::net::UdpSocket::bind("0.0.0.0:0").unwrap();
+    sock.connect("8.8.8.8:80").unwrap(); /* doesn't actually send */
+    sock.local_addr().unwrap().ip()
+}
+
 pub async fn start_discovery(name: String, tcp_port: u16) -> Arc<Mutex<HashSet<SocketAddr>>> {
     let peers = Arc::new(Mutex::new(HashSet::new()));
 
     let peers_clone = peers.clone();
     let name_clone = name.clone();
+
+    let local_ip = get_local_ip();
 
     tokio::spawn(async move {
         let sock = UdpSocket::bind("0.0.0.0:0").await.unwrap();
@@ -53,6 +61,10 @@ pub async fn start_discovery(name: String, tcp_port: u16) -> Arc<Mutex<HashSet<S
         loop {
             if let Ok((n, addr)) = udp_socket.recv_from(&mut buf).await {
                 if let Ok(msg) = serde_json::from_slice::<super::HelloMsg>(&buf[..n]) {
+                    if addr.ip() == local_ip && msg.tcp_port == tcp_port {
+                        continue; /* self */
+                    }
+
                     if addr.ip().to_string() != "127.0.0.1" {
                         println!(
                             "Found peer {} @ {} (TCP: {})",
