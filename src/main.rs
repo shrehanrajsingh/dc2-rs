@@ -16,6 +16,11 @@ mod protocol;
 mod server;
 
 use protocol::RequestType;
+use std::{
+    io::{self, Write},
+    thread::sleep,
+    time::Duration,
+};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 struct HelloMsg {
@@ -41,6 +46,81 @@ async fn main() {
         }
         [_, cmd, addr, subcmd, filepath] if cmd == "client" && subcmd == "send_file" => {
             client::run_client(addr, RequestType::SendFile, Some(filepath.to_string())).await;
+        }
+        [_, cmd] if cmd == "session" => {
+            println!("Available commands:");
+            println!("  server <port>");
+            println!("  client <addr> file_list");
+            println!("  client <addr> request_file <filename>");
+            println!("  client <addr> send_file <filepath>");
+            println!("  exit");
+            loop {
+                // print!("> ");
+                // io::stdout().flush().unwrap();
+                let mut input = String::new();
+                io::stdin().read_line(&mut input).unwrap();
+                let input = input.trim();
+
+                if input == "exit" {
+                    break;
+                }
+
+                let parts: Vec<&str> = input.split_whitespace().collect();
+                match parts.as_slice() {
+                    ["server", port_str] => {
+                        let port = port_str.parse().expect("Invalid port number");
+                        tokio::spawn(async move {
+                            let peers = start_discovery("Node1".to_string(), port).await;
+                            server::run_server(port).await;
+                        });
+                        sleep(Duration::from_millis(50));
+                    }
+                    ["client", addr, "file_list"] => {
+                        let addr_str = addr.to_string();
+                        println!("Requesting file list from {}", addr);
+                        tokio::spawn(async move {
+                            client::run_client(&addr_str, RequestType::FileList, None).await;
+                        });
+                    }
+                    ["client", addr, "request_file", filename] => {
+                        let addr_str = addr.to_string();
+                        let filename_str = filename.to_string();
+                        println!("Requesting file {} from {}", filename, addr);
+                        tokio::spawn(async move {
+                            client::run_client(
+                                &addr_str,
+                                RequestType::RequestFile,
+                                Some(filename_str),
+                            )
+                            .await;
+                        });
+                    }
+                    ["client", addr, "send_file", filepath] => {
+                        let addr_str = addr.to_string();
+                        let filepath_str = filepath.to_string();
+                        println!("Sending file {} to {}", filepath, addr);
+                        tokio::spawn(async move {
+                            client::run_client(
+                                &addr_str,
+                                RequestType::SendFile,
+                                Some(filepath_str),
+                            )
+                            .await;
+                        });
+                    }
+                    ["help"] => {
+                        println!("Available commands:");
+                        println!("  server <port>");
+                        println!("  client <addr> file_list");
+                        println!("  client <addr> request_file <filename>");
+                        println!("  client <addr> send_file <filepath>");
+                        println!("  exit");
+                    }
+                    _ => {
+                        println!("Unknown command. Type 'help' for usage information.");
+                    }
+                }
+            }
         }
         _ => {
             eprintln!("Usage:");

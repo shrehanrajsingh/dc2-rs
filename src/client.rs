@@ -36,8 +36,8 @@ pub async fn send_file(stream: &mut tokio::net::TcpStream, filepath: &str) {
     }
 
     // Send request type
-    stream.write_u32(12 as u32).await.unwrap();
-    stream.write_all(b"REQUEST_FILE").await.unwrap();
+    stream.write_u32(10 as u32).await.unwrap();
+    stream.write_all(b"SEND_FILE\n").await.unwrap();
 
     // Send Manifest
     stream.write_u32(manifest.len() as u32).await.unwrap();

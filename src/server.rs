@@ -18,7 +18,7 @@ async fn handle_peer(mut socket: TcpStream) {
         Ok(l) => l,
         Err(e) => {
             if e.kind() == ErrorKind::UnexpectedEof {
-                dbg!("Connection Closed Due to Unexpected EOF");
+                println!("Connection Closed Due to Unexpected EOF");
             }
             return;
         }
@@ -60,7 +60,7 @@ async fn handle_peer(mut socket: TcpStream) {
             }
         }
 
-        Some(RequestType::RequestFile) => {
+        Some(RequestType::SendFile) => {
             tokio::spawn(async move {
                 const END_CHUNK: u32 = u32::MAX;
 
@@ -184,6 +184,23 @@ async fn handle_peer(mut socket: TcpStream) {
                     received_chunks.insert(index);
                 }
             });
+        }
+
+        Some(RequestType::RequestFile) => {
+            let map: HashMap<String, String> = serde_json::from_str(&payload).unwrap();
+            let filename = map.get("filename").unwrap();
+
+            println!("Requested file: {}", filename);
+            let peer_addr = socket.peer_addr().unwrap();
+            let filename_clone = filename.clone();
+            // tokio::spawn(async move {
+            //     crate::client::run_client(
+            //         &peer_addr.to_string(),
+            //         RequestType::SendFile,
+            //         Some(filename_clone),
+            //     )
+            //     .await;
+            // });
         }
 
         Some(RequestType::Chunk) => {}
