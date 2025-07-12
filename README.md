@@ -17,7 +17,7 @@ The framework implements advanced networking protocols and efficient data handli
 
 ```bash
 # Clone the repository
-git clone https://github.com/username/dc2-rs.git
+git clone https://github.com/shrehanrajsingh/dc2-rs.git
 cd dc2-rs
 
 # Build the project
@@ -40,6 +40,15 @@ In a separate terminal session, initiate a file transfer:
 
 ```bash
 cargo run -- client 127.0.0.1:8000 hostfile/IPC-DBus.pdf
+```
+
+### Command-Line Usage
+
+```
+dc2-rs server <port>
+dc2-rs client <addr> <file_list>
+dc2-rs client <addr> request_file <filename>
+dc2-rs client <addr> send_file <filepath>
 ```
 
 ## Troubleshooting

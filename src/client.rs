@@ -10,17 +10,10 @@ use tokio::net::TcpStream;
 
 use sha2::{Digest, Sha256};
 
-pub async fn run_client(addr: &str, filepath: &str) {
-    let stream_result = TcpStream::connect(addr).await;
+use crate::peer;
+use crate::protocol::RequestType;
 
-    let mut stream = match stream_result {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("error connecting to client: {}", e);
-            return;
-        }
-    };
-
+pub async fn send_file(stream: &mut tokio::net::TcpStream, filepath: &str) {
     let mut manifest = Vec::new();
     let mut file = File::open(filepath).await.unwrap();
     let mut hasher = Sha256::new();
@@ -41,6 +34,10 @@ pub async fn run_client(addr: &str, filepath: &str) {
         manifest.push((index, hash));
         index += 1;
     }
+
+    // Send request type
+    stream.write_u32(12 as u32).await.unwrap();
+    stream.write_all(b"REQUEST_FILE").await.unwrap();
 
     // Send Manifest
     stream.write_u32(manifest.len() as u32).await.unwrap();
@@ -133,4 +130,29 @@ pub async fn run_client(addr: &str, filepath: &str) {
         filename,
         missing_indices.len() as u32
     );
+}
+
+pub async fn run_client(addr: &str, request: RequestType, payload: Option<String>) {
+    let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+
+    match request {
+        RequestType::FileList => peer::connect_to_peer(addr).await,
+
+        RequestType::RequestFile => {
+            let filename = payload.expect("Missing filename for REQUEST_FILE");
+            let message = format!("REQUEST_FILE\n{{\"filename\":\"{}\"}}", filename);
+
+            stream.write_u32(message.len() as u32).await.unwrap();
+            stream.write_all(message.as_bytes()).await.unwrap();
+
+            println!("Requested file: {}", filename);
+        }
+
+        RequestType::SendFile => {
+            let filepath = payload.expect("Missing file for SEND_FILE");
+            send_file(&mut stream, &filepath).await;
+        }
+
+        _ => (),
+    }
 }

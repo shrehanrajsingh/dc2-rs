@@ -10,7 +10,12 @@ use crate::discovery::start_discovery;
 */
 mod client;
 mod discovery;
+mod files;
+mod peer;
+mod protocol;
 mod server;
+
+use protocol::RequestType;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 struct HelloMsg {
@@ -28,7 +33,21 @@ async fn main() {
             let peers = start_discovery("Node1".to_string(), port).await;
             server::run_server(port).await;
         }
-        [_, cmd, addr, path] if cmd == "client" => client::run_client(&addr, &path).await,
-        _ => eprintln!("Usage:\ndc2-rs server <port>\ndc2-rs client <addr> <file>"),
+        [_, cmd, addr, subcmd] if cmd == "client" && subcmd == "file_list" => {
+            client::run_client(addr, RequestType::FileList, None).await;
+        }
+        [_, cmd, addr, subcmd, filename] if cmd == "client" && subcmd == "request_file" => {
+            client::run_client(addr, RequestType::RequestFile, Some(filename.to_string())).await;
+        }
+        [_, cmd, addr, subcmd, filepath] if cmd == "client" && subcmd == "send_file" => {
+            client::run_client(addr, RequestType::SendFile, Some(filepath.to_string())).await;
+        }
+        _ => {
+            eprintln!("Usage:");
+            eprintln!("  dc2-rs server port");
+            eprintln!("  dc2-rs client <addr> file_list");
+            eprintln!("  dc2-rs client <addr> request_file <filename>");
+            eprintln!("  dc2-rs client <addr> send_file <filepath>");
+        }
     }
 }
