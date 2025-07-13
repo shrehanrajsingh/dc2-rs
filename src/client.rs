@@ -1,9 +1,13 @@
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::fs;
 use std::path::Path;
 use std::u32;
 
 use indicatif::ProgressBar;
 use tokio::fs::metadata;
 use tokio::fs::File;
+use tokio::fs::OpenOptions;
 use tokio::io::AsyncSeekExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -12,6 +16,7 @@ use sha2::{Digest, Sha256};
 
 use crate::peer;
 use crate::protocol::RequestType;
+use crate::server;
 
 pub async fn send_file(stream: &mut tokio::net::TcpStream, filepath: &str) {
     let mut manifest = Vec::new();
@@ -74,34 +79,6 @@ pub async fn send_file(stream: &mut tokio::net::TcpStream, filepath: &str) {
         missing_indices.push(idx);
     }
 
-    // let mut chunk_index = 0 as u32;
-    // loop {
-    //     let n = file.read(&mut buf).await.unwrap();
-    //     if n == 0 {
-    //         break;
-    //     }
-
-    //     // Chunk index
-    //     stream.write_u32(chunk_index).await.unwrap();
-
-    //     hasher.update(&buf[..n]);
-
-    //     // Data length in bytes
-    //     stream.write_u32(n as u32).await.unwrap(); /* n should be 4096 (bufsize) */
-    //     // Chunk data
-    //     stream.write_all(&buf[..n]).await.unwrap();
-    //     pb.inc(n as u64);
-
-    //     let mut chunk_hash = Sha256::new();
-    //     chunk_hash.update(&buf[..n]);
-
-    //     let hash = chunk_hash.finalize();
-    //     // SHA-256 hash of chunk data
-    //     stream.write_all(&hash).await.unwrap();
-
-    //     chunk_index += 1;
-    // }
-
     for &index in &missing_indices {
         let offset = index as u64 * 4096 as u64;
         file.seek(std::io::SeekFrom::Start(offset)).await.unwrap();
@@ -132,6 +109,126 @@ pub async fn send_file(stream: &mut tokio::net::TcpStream, filepath: &str) {
     );
 }
 
+pub async fn receive_file(stream: &mut TcpStream) {
+    const END_CHUNK: u32 = u32::MAX;
+
+    let len = stream.read_u32().await.unwrap();
+    let mut header_buf = vec![0u8; len as usize];
+    stream.read_exact(&mut header_buf).await.unwrap();
+
+    dbg!(&String::from_utf8_lossy(&header_buf));
+
+    let chunk_count = stream.read_u32().await.unwrap();
+    let mut manifest = HashMap::new();
+
+    dbg!(&chunk_count);
+
+    for _ in 0..chunk_count {
+        let index = stream.read_u32().await.unwrap();
+        let mut hash = [0u8; 32];
+        stream.read_exact(&mut hash).await.unwrap();
+        manifest.insert(index, hash);
+    }
+
+    let filename_len = stream.read_u32().await.unwrap();
+
+    dbg!(&filename_len);
+    let mut name_buf = vec![0u8; filename_len as usize];
+    stream.read_exact(&mut name_buf).await.unwrap();
+    let filename = String::from_utf8_lossy(&name_buf);
+
+    let filename = format!("dump/{}", filename);
+    fs::create_dir_all("dump").unwrap();
+
+    let filesize = stream.read_u64().await.unwrap();
+    let chunk_size = stream.read_u32().await.unwrap();
+
+    println!("Receiving {} ({} bytes)", filename, filesize);
+
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .read(true)
+        .open(&filename)
+        .await
+        .unwrap();
+
+    dbg!(&filesize);
+    file.set_len(filesize).await.unwrap();
+
+    let mut received_chunks = HashSet::new();
+
+    let mut missing_chunks = Vec::new();
+    let mut buf = vec![0u8; chunk_size as usize];
+
+    for (&index, expected_hash) in &manifest {
+        let offset = index as u64 * chunk_size as u64;
+        file.seek(std::io::SeekFrom::Start(offset)).await.unwrap();
+
+        let n = file.read(&mut buf).await.unwrap();
+        if n == 0 {
+            missing_chunks.push(index);
+            continue;
+        }
+
+        let mut hasher = Sha256::new();
+        hasher.update(&buf[..n]);
+        let actual = hasher.finalize();
+
+        if actual.as_slice() != expected_hash {
+            missing_chunks.push(index);
+        }
+    }
+
+    // Send missing chunks
+    stream.write_u32(missing_chunks.len() as u32).await.unwrap();
+    for &idx in &missing_chunks {
+        stream.write_u32(idx).await.unwrap();
+    }
+
+    // let missing_count = chunk_count;
+    // stream.write_u32(missing_count).await.unwrap();
+    // for i in 0..chunk_count {
+    //     stream.write_u32(i).await.unwrap();
+    // }
+
+    loop {
+        let index = stream.read_u32().await.unwrap();
+        dbg!(&index);
+        if index == END_CHUNK {
+            break;
+        }
+
+        let len = stream.read_u32().await.unwrap();
+        if len == 0 {
+            continue;
+        }
+
+        let mut chunk = vec![0u8; len as usize];
+        stream.read_exact(&mut chunk).await.unwrap();
+
+        let mut hash_buf = [0u8; 32];
+        stream.read_exact(&mut hash_buf).await.unwrap();
+
+        let mut hasher = Sha256::new();
+        hasher.update(&chunk);
+        let hash = hasher.finalize();
+
+        if hash.as_slice() != &hash_buf {
+            println!("hash mismatch for chunk {}", index);
+            continue;
+        }
+
+        let offset = index as u64 * chunk_size as u64;
+        file.seek(std::io::SeekFrom::Start(offset)).await.unwrap();
+        file.write_all(&chunk).await.unwrap();
+
+        received_chunks.insert(index);
+    }
+
+    println!("Download complete: {}", filename);
+}
+
 pub async fn run_client(addr: &str, request: RequestType, payload: Option<String>) {
     let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
 
@@ -145,7 +242,7 @@ pub async fn run_client(addr: &str, request: RequestType, payload: Option<String
             stream.write_u32(message.len() as u32).await.unwrap();
             stream.write_all(message.as_bytes()).await.unwrap();
 
-            println!("Requested file: {}", filename);
+            receive_file(&mut stream).await;
         }
 
         RequestType::SendFile => {

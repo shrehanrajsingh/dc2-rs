@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::io::ErrorKind;
+use std::net::SocketAddr;
 use std::process::exit;
 use std::{fs, vec};
 use tokio::net::TcpStream;
@@ -10,10 +11,11 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::stream;
 
+use crate::client;
 use crate::files::FileEntry;
 use crate::protocol::{PeerMessage, RequestType};
 
-async fn handle_peer(mut socket: TcpStream) {
+async fn handle_peer(mut socket: TcpStream, mut addr: SocketAddr) {
     let len = match socket.read_u32().await {
         Ok(l) => l,
         Err(e) => {
@@ -188,19 +190,17 @@ async fn handle_peer(mut socket: TcpStream) {
 
         Some(RequestType::RequestFile) => {
             let map: HashMap<String, String> = serde_json::from_str(&payload).unwrap();
-            let filename = map.get("filename").unwrap();
+            let filename = map.get("filename").unwrap().clone();
 
             println!("Requested file: {}", filename);
-            let peer_addr = socket.peer_addr().unwrap();
-            let filename_clone = filename.clone();
-            // tokio::spawn(async move {
-            //     crate::client::run_client(
-            //         &peer_addr.to_string(),
-            //         RequestType::SendFile,
-            //         Some(filename_clone),
-            //     )
-            //     .await;
-            // });
+
+            let filepath = format!("hostfile/{}", filename);
+            if !std::path::Path::new(&filepath).exists() {
+                println!("File not found: {}", filepath);
+                return;
+            }
+
+            client::send_file(&mut socket, &filepath).await;
         }
 
         Some(RequestType::Chunk) => {}
@@ -229,7 +229,7 @@ pub async fn run_server(port: u16) {
         println!("new connection from {}", addr);
 
         tokio::spawn(async move {
-            handle_peer(socket).await;
+            handle_peer(socket, addr).await;
         });
     }
 }
