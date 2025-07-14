@@ -1,18 +1,22 @@
 use eframe::egui::{self, CentralPanel, Label};
 use rusqlite::Connection;
 
+use crate::discovery::init_db;
+
 pub struct AppState {
     conn: Connection,
     peers: Vec<(String, u16, String, String)>,
+    user_name: String,
 }
 
 impl AppState {
     pub fn new() -> Self {
-        let conn = Connection::open("database/peers.db").unwrap();
+        let conn = init_db();
 
         Self {
             peers: load_peers(&conn),
             conn,
+            user_name: String::from("Node1"),
         }
     }
 }
@@ -49,6 +53,12 @@ impl eframe::App for AppState {
             if ui.button("Refresh").clicked() {
                 self.peers = load_peers(&self.conn);
             }
+            ui.horizontal(|ui| {
+                ui.label("Name:");
+                ui.text_edit_singleline(&mut self.user_name);
+            });
+
+            if ui.button("Save").clicked() { /* do nothing */ }
         });
     }
 }
