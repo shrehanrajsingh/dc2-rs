@@ -1,3 +1,5 @@
+use chrono::Utc;
+use rusqlite::{params, Connection};
 use socket2::{Domain, Protocol, Socket, Type};
 use std::collections::HashSet;
 use std::io::StdoutLock;
@@ -16,6 +18,44 @@ fn get_local_ip() -> IpAddr {
     sock.local_addr().unwrap().ip()
 }
 
+pub fn init_db() -> Connection {
+    std::fs::create_dir_all("database").unwrap();
+    let conn = Connection::open("database/peers.db").unwrap();
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS peers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ip TEXT NOT NULL,
+        tcp_port INTEGER NOT NULL,
+        name TEXT,
+        last_seen TEXT
+        )",
+        [],
+    )
+    .unwrap();
+
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS peer_index ON peers (ip, tcp_port);",
+        [],
+    )
+    .unwrap();
+
+    conn
+}
+
+pub fn save_peer(conn: &Connection, addr: SocketAddr, name: &str, tcp_port: u16) {
+    let ip = addr.ip().to_string();
+    let now = Utc::now().to_rfc3339();
+
+    conn.execute(
+        "INSERT INTO peers (ip, tcp_port, name, last_seen) 
+        VALUES (?1, ?2, ?3, ?4) ON CONFLICT(ip, tcp_port) DO UPDATE
+        SET last_seen=?4",
+        params![ip, tcp_port, name, now],
+    )
+    .unwrap();
+}
+
 pub async fn start_discovery(name: String, tcp_port: u16) -> Arc<Mutex<HashSet<SocketAddr>>> {
     let peers = Arc::new(Mutex::new(HashSet::new()));
 
@@ -23,6 +63,9 @@ pub async fn start_discovery(name: String, tcp_port: u16) -> Arc<Mutex<HashSet<S
     let name_clone = name.clone();
 
     let local_ip = get_local_ip();
+
+    let conn = Arc::new(Mutex::new(init_db()));
+    let conn_clone = conn.clone();
 
     tokio::spawn(async move {
         let sock = UdpSocket::bind("0.0.0.0:0").await.unwrap();
@@ -66,17 +109,20 @@ pub async fn start_discovery(name: String, tcp_port: u16) -> Arc<Mutex<HashSet<S
                     }
 
                     if addr.ip().to_string() != "127.0.0.1" {
-                        println!(
-                            "Found peer {} @ {} (TCP: {})",
-                            msg.name,
-                            addr.ip(),
-                            msg.tcp_port
-                        );
+                        // println!(
+                        //     "Found peer {} @ {} (TCP: {})",
+                        //     msg.name,
+                        //     addr.ip(),
+                        //     msg.tcp_port
+                        // );
 
                         peers_clone2
                             .lock()
                             .unwrap()
                             .insert(SocketAddr::new(addr.ip(), msg.tcp_port));
+
+                        let conn = conn_clone.lock().unwrap();
+                        save_peer(&conn, addr, &msg.name, msg.tcp_port);
                     }
                 }
             }
@@ -84,4 +130,26 @@ pub async fn start_discovery(name: String, tcp_port: u16) -> Arc<Mutex<HashSet<S
     });
 
     peers_clone
+}
+
+pub fn print_all_peers(conn: &Connection) {
+    let mut stmt = conn
+        .prepare("SELECT ip, tcp_port, name, last_seen FROM peers")
+        .unwrap();
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, u16>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        })
+        .unwrap();
+
+    println!("Known Peers:");
+    for row in rows {
+        let (ip, port, name, last_seen) = row.unwrap();
+        println!("> {}:{} ({}), last seen {}", ip, port, name, last_seen);
+    }
 }

@@ -1,0 +1,11 @@
+Use Shared = ./hostfile
+Use Download = ./dump
+
+Begin Mount on Download {
+    /path/to/some/other/download
+    /some/other/cool/path
+}
+
+Begin Mount on Shared {
+    /path/to/some/other/folder/to/share
+}

@@ -11,6 +11,7 @@ use crate::discovery::start_discovery;
 mod client;
 mod discovery;
 mod files;
+mod gui;
 mod peer;
 mod protocol;
 mod server;
@@ -28,9 +29,9 @@ struct HelloMsg {
     tcp_port: u16,
 }
 
-#[tokio::main]
-async fn main() {
+async fn term_run() {
     let args: Vec<String> = std::env::args().collect();
+    let conn = discovery::init_db();
 
     match args.as_slice() {
         [_, cmd, port_str] if cmd == "server" => {
@@ -47,12 +48,16 @@ async fn main() {
         [_, cmd, addr, subcmd, filepath] if cmd == "client" && subcmd == "send_file" => {
             client::run_client(addr, RequestType::SendFile, Some(filepath.to_string())).await;
         }
+        [_, cmd, subcmd] if cmd == "client" && subcmd == "list_peers" => {
+            discovery::print_all_peers(&conn);
+        }
         [_, cmd] if cmd == "session" => {
             println!("Available commands:");
             println!("  server <port>");
             println!("  client <addr> file_list");
             println!("  client <addr> request_file <filename>");
             println!("  client <addr> send_file <filepath>");
+            println!("  client list_peers");
             println!("  exit");
             loop {
                 // print!("> ");
@@ -108,6 +113,9 @@ async fn main() {
                             .await;
                         });
                     }
+                    ["client", "list_peers"] => {
+                        discovery::print_all_peers(&conn);
+                    }
                     ["help"] => {
                         println!("Available commands:");
                         println!("  server <port>");
@@ -127,7 +135,23 @@ async fn main() {
             eprintln!("  dc2-rs server port");
             eprintln!("  dc2-rs client <addr> file_list");
             eprintln!("  dc2-rs client <addr> request_file <filename>");
+            eprintln!("  dc2-rs client list_peers");
             eprintln!("  dc2-rs client <addr> send_file <filepath>");
         }
     }
+}
+
+fn gui_run() -> eframe::Result<()> {
+    let options = eframe::NativeOptions::default();
+    eframe::run_native(
+        "DC2-RS",
+        options,
+        Box::new(|_cc| Box::new(gui::AppState::new())),
+    )
+}
+
+#[tokio::main]
+async fn main() {
+    // gui_run().unwrap();
+    term_run().await;
 }

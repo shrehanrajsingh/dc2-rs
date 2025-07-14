@@ -20,7 +20,10 @@ use crate::server;
 
 pub async fn send_file(stream: &mut tokio::net::TcpStream, filepath: &str) {
     let mut manifest = Vec::new();
-    let mut file = File::open(filepath).await.unwrap();
+    let file_path_with_dir = format!("hostfile/{}", filepath);
+    println!("{}", file_path_with_dir);
+
+    let mut file = File::open(&file_path_with_dir).await.unwrap();
     let mut hasher = Sha256::new();
     let mut buf = [0u8; 4096];
     let mut index = 0;
@@ -61,7 +64,7 @@ pub async fn send_file(stream: &mut tokio::net::TcpStream, filepath: &str) {
     // Filename as byte array
     stream.write_all(filename.as_bytes()).await.unwrap();
 
-    let size = metadata(filepath).await.unwrap().len();
+    let size = metadata(&file_path_with_dir).await.unwrap().len();
     let pb = ProgressBar::new(size);
 
     // Total file size in bytes
