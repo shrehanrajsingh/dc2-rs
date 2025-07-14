@@ -152,6 +152,6 @@ fn gui_run() -> eframe::Result<()> {
 
 #[tokio::main]
 async fn main() {
-    gui_run().unwrap();
-    // term_run().await;
+    // gui_run().unwrap();
+    term_run().await;
 }
