@@ -20,7 +20,8 @@ async fn handle_peer(mut socket: TcpStream, mut addr: SocketAddr) {
         Ok(l) => l,
         Err(e) => {
             if e.kind() == ErrorKind::UnexpectedEof {
-                println!("Connection Closed Due to Unexpected EOF");
+                // println!("Connection Closed Due to Unexpected EOF");
+                /* connection closed */
             }
             return;
         }
@@ -204,6 +205,19 @@ async fn handle_peer(mut socket: TcpStream, mut addr: SocketAddr) {
         }
 
         Some(RequestType::Chunk) => {}
+
+        Some(RequestType::Ping) => {
+            println!("Got ping request from {}", addr);
+
+            let info = format!(
+                "PONG\n{{\"name\": \"dc2-rs\", \"tcp_port\": {}}}",
+                addr.port()
+            );
+
+            let response_len = info.len() as u32;
+            socket.write_u32(response_len).await.unwrap();
+            socket.write_all(info.as_bytes()).await.unwrap();
+        }
 
         _ => {
             println!("Unknown request type: {}", request_type);

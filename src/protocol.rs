@@ -12,6 +12,7 @@ pub enum RequestType {
     RequestFile,
     Chunk,
     SendFile,
+    Ping,
 }
 
 impl RequestType {
@@ -21,6 +22,7 @@ impl RequestType {
             "REQUEST_FILE" => Some(Self::RequestFile),
             "CHUNK" => Some(Self::Chunk),
             "SEND_FILE" => Some(Self::SendFile),
+            "PING" => Some(Self::Ping),
             _ => None,
         }
     }
@@ -31,6 +33,7 @@ impl RequestType {
             RequestType::Chunk => "CHUNK",
             RequestType::RequestFile => "REQUEST_FILE",
             RequestType::SendFile => "SEND_FILE",
+            RequestType::Ping => "PING",
         }
     }
 }

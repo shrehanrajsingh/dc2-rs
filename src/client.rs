@@ -256,3 +256,23 @@ pub async fn run_client(addr: &str, request: RequestType, payload: Option<String
         _ => (),
     }
 }
+
+pub async fn ping_peer(addr: &str) {
+    let mut stream = match TcpStream::connect(addr).await {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Failed to connect to {}: {}", addr, e);
+            return;
+        }
+    };
+
+    let msg = "PING\n";
+    stream.write_u32(msg.len() as u32).await.unwrap();
+    stream.write_all(msg.as_bytes()).await.unwrap();
+
+    let len = stream.read_u32().await.unwrap();
+    let mut buf = vec![0u8; len as usize];
+    stream.read_exact(&mut buf).await.unwrap();
+
+    println!("Server response: {}", String::from_utf8_lossy(&buf));
+}
