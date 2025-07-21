@@ -5,7 +5,7 @@ export default function Navbar() {
   const setPage = useAppStore((state) => state.setPage);
 
   return (
-    <nav className="w-full flex gap-4 py-2 px-4 align-middle items-center border-b-[0.1px] border-b-gray-500">
+    <nav className="fixed top-0 left-0 w-screen flex gap-4 py-2 px-4 align-middle items-center border-b-[0.1px] border-b-gray-500 bg-[#2f2f2f]">
       <div className="cursor-default">
         <h1 className="text-sm font-bold">DC 2</h1>
       </div>
