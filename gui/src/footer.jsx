@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import { check_server_is_running } from "./t-api/api";
+import { check_server_is_running, get_peers } from "./t-api/api";
 
 export default function Footer() {
   const [status, setStatus] = useState(false);

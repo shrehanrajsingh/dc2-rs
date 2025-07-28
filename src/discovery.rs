@@ -18,9 +18,9 @@ fn get_local_ip() -> IpAddr {
     sock.local_addr().unwrap().ip()
 }
 
-pub fn init_db() -> Connection {
-    std::fs::create_dir_all("database").unwrap();
-    let conn = Connection::open("database/peers.db").unwrap();
+pub fn init_db(path: &String) -> Connection {
+    std::fs::create_dir_all(path).unwrap();
+    let conn = Connection::open(format!("{}/peers.db", path)).unwrap();
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS peers (
@@ -64,7 +64,7 @@ pub async fn start_discovery(name: String, tcp_port: u16) -> Arc<Mutex<HashSet<S
 
     let local_ip = get_local_ip();
 
-    let conn = Arc::new(Mutex::new(init_db()));
+    let conn = Arc::new(Mutex::new(init_db(&String::from("./database"))));
     let conn_clone = conn.clone();
 
     tokio::spawn(async move {
@@ -104,9 +104,9 @@ pub async fn start_discovery(name: String, tcp_port: u16) -> Arc<Mutex<HashSet<S
         loop {
             if let Ok((n, addr)) = udp_socket.recv_from(&mut buf).await {
                 if let Ok(msg) = serde_json::from_slice::<super::HelloMsg>(&buf[..n]) {
-                    if addr.ip() == local_ip && msg.tcp_port == tcp_port {
-                        continue; /* self */
-                    }
+                    // if addr.ip() == local_ip && msg.tcp_port == tcp_port {
+                    //     continue; /* self */
+                    // }
 
                     if addr.ip().to_string() != "127.0.0.1" {
                         // println!(

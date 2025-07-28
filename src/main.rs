@@ -1,4 +1,4 @@
-use crate::discovery::start_discovery;
+use crate::discovery::{init_db, start_discovery};
 
 /* dc2-rs
  * Welcome to DC2-RS, a peer-to-peer protocol for file transfers.
@@ -30,14 +30,13 @@ struct HelloMsg {
 
 async fn term_run() {
     let args: Vec<String> = std::env::args().collect();
-    let conn = discovery::init_db();
     let mut curr_port = 0;
 
     match args.as_slice() {
         [_, cmd, port_str] if cmd == "server" => {
             let port = port_str.parse().expect("Invalid port number");
             curr_port = port;
-            let peers = start_discovery("Node1".to_string(), port).await;
+            let peers = start_discovery("Anonymous".to_string(), port).await;
             server::run_server(port).await;
         }
         [_, cmd, port_str, head] if cmd == "server" && head == "head" => {
@@ -53,7 +52,8 @@ async fn term_run() {
         [_, cmd, addr, subcmd, filepath] if cmd == "client" && subcmd == "send_file" => {
             client::run_client(addr, RequestType::SendFile, Some(filepath.to_string())).await;
         }
-        [_, cmd, subcmd] if cmd == "client" && subcmd == "list_peers" => {
+        [_, cmd, subcmd, path] if cmd == "client" && subcmd == "list_peers" => {
+            let conn = init_db(path);
             discovery::print_all_peers(&conn);
         }
         [_, cmd, addr, subcmd] if cmd == "client" && subcmd == "ping" => {
@@ -143,7 +143,7 @@ async fn term_run() {
             eprintln!("  dc2-rs server port");
             eprintln!("  dc2-rs client <addr> file_list");
             eprintln!("  dc2-rs client <addr> request_file <filename>");
-            eprintln!("  dc2-rs client list_peers");
+            eprintln!("  dc2-rs client list_peers /path/to/database");
             eprintln!("  dc2-rs client <addr> send_file <filepath>");
             eprintln!("  dc2-rs client <addr> ping");
         }

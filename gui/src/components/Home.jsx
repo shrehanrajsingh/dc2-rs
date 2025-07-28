@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useEffect } from "react";
+import { get_peers } from "../t-api/api";
 
 class TextMessage {
   from;
@@ -19,7 +20,7 @@ export default function Home() {
       new Date(),
       (
         <div>
-          <p>
+          <div>
             Welcome to DC2.
             <br />
             You are running DC2 version 1.0alpha.
@@ -37,15 +38,20 @@ $$ |__$$ |$$ \__/  |$$ |_____
 $$    $$/ $$    $$/ $$       |
 $$$$$$$/   $$$$$$/  $$$$$$$$/ `}
             </pre>
-          </p>
+          </div>
         </div>
       )
     ),
   ]);
   const [text, setText] = useState("");
+  const [menu, setMenu] = useState("home");
+  const [peers, setPeers] = useState([]);
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
+
+    if (!text.length) return;
+
     setAllTexts((old) => [
       ...old,
       new TextMessage("127.0.0.1", new Date(), text),
@@ -55,11 +61,45 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ `}
   };
 
   useEffect(() => {
+    const handle = async () => {
+      try {
+        const peersResponse = await get_peers();
+        let peersData;
+        if (typeof peersResponse.json === "function") {
+          peersData = await peersResponse.json();
+        } else {
+          peersData = peersResponse;
+        }
+        console.log("Data is: ", JSON.parse(peersData));
+
+        setPeers(JSON.parse(peersData));
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+    const intervalID = setInterval(handle, 3000);
+    return () => clearInterval(intervalID);
+  }, []);
+
+  useEffect(() => {
     const textDiv = document.getElementById("text-div");
     if (textDiv) {
       textDiv.scrollTop = textDiv.scrollHeight;
     }
   }, [allTexts]);
+
+  const fmt_last_seen_on = (date) => {
+    const lastSeenDate = new Date(date);
+    const now = new Date();
+    const diffInSeconds = (now - lastSeenDate) / 1000;
+
+    if (diffInSeconds < 5) {
+      return "Online";
+    } else {
+      return `Last seen at ${lastSeenDate.toLocaleString()}`;
+    }
+  };
 
   return (
     <div className="pt-8 max-h-screen h-screen pb-6 w-screen">
@@ -70,7 +110,32 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ `}
               DC2 Client
             </h2>
             <ul className="space-y-2">
-              <li className="flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors">
+              <li
+                className={`flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors ${
+                  menu == "home" ? "bg-gray-300/10" : ""
+                }`}
+                onClick={() => {
+                  setMenu("home");
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 mr-3 text-gray-50"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7A1 1 0 003 11h1v6a1 1 0 001 1h3a1 1 0 001-1v-3h2v3a1 1 0 001 1h3a1 1 0 001-1v-6h1a1 1 0 00.707-1.707l-7-7z" />
+                </svg>
+                <span className="text-gray-50">Home</span>
+              </li>
+              <li
+                className={`flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors ${
+                  menu == "hubs" ? "bg-gray-300/10" : ""
+                }`}
+                onClick={() => {
+                  setMenu("hubs");
+                }}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-5 w-5 mr-3 text-gray-50"
@@ -81,7 +146,14 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ `}
                 </svg>
                 <span className="text-gray-50">Hubs</span>
               </li>
-              <li className="flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors">
+              <li
+                className={`flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors ${
+                  menu == "private-messages" ? "bg-gray-300/10" : ""
+                }`}
+                onClick={() => {
+                  setMenu("private-messages");
+                }}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-5 w-5 mr-3 text-gray-50"
@@ -93,7 +165,14 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ `}
                 </svg>
                 <span className="text-gray-50">Private Messages</span>
               </li>
-              <li className="flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors">
+              <li
+                className={`flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors ${
+                  menu == "search" ? "bg-gray-300/10" : ""
+                }`}
+                onClick={() => {
+                  setMenu("search");
+                }}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-5 w-5 mr-3 text-gray-50"
@@ -108,7 +187,14 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ `}
                 </svg>
                 <span className="text-gray-50">Search</span>
               </li>
-              <li className="flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors">
+              <li
+                className={`flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors ${
+                  menu == "download-queue" ? "bg-gray-300/10" : ""
+                }`}
+                onClick={() => {
+                  setMenu("download-queue");
+                }}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-5 w-5 mr-3 text-gray-50"
@@ -123,7 +209,14 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ `}
                 </svg>
                 <span className="text-gray-50">Download Queue</span>
               </li>
-              <li className="flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors">
+              <li
+                className={`flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors ${
+                  menu == "finished-uploads" ? "bg-gray-300/10" : ""
+                }`}
+                onClick={() => {
+                  setMenu("finished-uploads");
+                }}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-5 w-5 mr-3 text-gray-50"
@@ -138,7 +231,14 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ `}
                 </svg>
                 <span className="text-gray-50">Finished uploads</span>
               </li>
-              <li className="flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors">
+              <li
+                className={`flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors ${
+                  menu == "finished-downloads" ? "bg-gray-300/10" : ""
+                }`}
+                onClick={() => {
+                  setMenu("finished-downloads");
+                }}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-5 w-5 mr-3 text-gray-50"
@@ -153,7 +253,14 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ `}
                 </svg>
                 <span className="text-gray-50">Finished downloads</span>
               </li>
-              <li className="flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors">
+              <li
+                className={`flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors ${
+                  menu == "fav-hubs" ? "bg-gray-300/10" : ""
+                }`}
+                onClick={() => {
+                  setMenu("fav-hubs");
+                }}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-5 w-5 mr-3 text-gray-50"
@@ -164,7 +271,14 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ `}
                 </svg>
                 <span className="text-gray-50">Favorite Hubs</span>
               </li>
-              <li className="flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors">
+              <li
+                className={`flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors ${
+                  menu == "fav-users" ? "bg-gray-300/10" : ""
+                }`}
+                onClick={() => {
+                  setMenu("fav-users");
+                }}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-5 w-5 mr-3 text-gray-50"
@@ -179,7 +293,14 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ `}
                 </svg>
                 <span className="text-gray-50">Favorite Users</span>
               </li>
-              <li className="flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors">
+              <li
+                className={`flex items-center p-2 rounded-md hover:bg-gray-200/20 cursor-pointer transition-colors ${
+                  menu == "debug-console" ? "bg-gray-300/10" : ""
+                }`}
+                onClick={() => {
+                  setMenu("debug-console");
+                }}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-5 w-5 mr-3 text-gray-50"
@@ -268,46 +389,40 @@ $$$$$$$/   $$$$$$/  $$$$$$$$/ `}
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="hover:bg-black/20">
-                    <td className="px-4 py-2 text-gray-200">CoolCat42</td>
-                    <td className="px-4 py-2 text-gray-200">1.2 TB</td>
-                    <td className="px-4 py-2 text-gray-200"></td>
-                    <td className="px-4 py-2 text-gray-200"></td>
-                    <td className="px-4 py-2 text-gray-200"></td>
-                    <td className="px-4 py-2 text-gray-200">192.168.1.10</td>
-                  </tr>
-                  <tr className="hover:bg-black/20">
-                    <td className="px-4 py-2 text-gray-200">FileHunter</td>
-                    <td className="px-4 py-2 text-gray-200">800 GB</td>
-                    <td className="px-4 py-2 text-gray-200"></td>
-                    <td className="px-4 py-2 text-gray-200"></td>
-                    <td className="px-4 py-2 text-gray-200"></td>
-                    <td className="px-4 py-2 text-gray-200">10.0.0.5</td>
-                  </tr>
-                  <tr className="hover:bg-black/20">
-                    <td className="px-4 py-2 text-gray-200">NightOwl</td>
-                    <td className="px-4 py-2 text-gray-200">2.5 TB</td>
-                    <td className="px-4 py-2 text-gray-200"></td>
-                    <td className="px-4 py-2 text-gray-200"></td>
-                    <td className="px-4 py-2 text-gray-200"></td>
-                    <td className="px-4 py-2 text-gray-200">172.16.0.22</td>
-                  </tr>
-                  <tr className="hover:bg-black/20">
-                    <td className="px-4 py-2 text-gray-200">ShareBear</td>
-                    <td className="px-4 py-2 text-gray-200">600 GB</td>
-                    <td className="px-4 py-2 text-gray-200"></td>
-                    <td className="px-4 py-2 text-gray-200"></td>
-                    <td className="px-4 py-2 text-gray-200"></td>
-                    <td className="px-4 py-2 text-gray-200">192.168.0.44</td>
-                  </tr>
-                  <tr className="hover:bg-black/20">
-                    <td className="px-4 py-2 text-gray-200">Zenith</td>
-                    <td className="px-4 py-2 text-gray-200">3.1 TB</td>
-                    <td className="px-4 py-2 text-gray-200"></td>
-                    <td className="px-4 py-2 text-gray-200"></td>
-                    <td className="px-4 py-2 text-gray-200"></td>
-                    <td className="px-4 py-2 text-gray-200">203.0.113.7</td>
-                  </tr>
+                  {/* {JSON.stringify(peers)} */}
+                  {peers && peers.length > 0 ? (
+                    peers.map((peer, index) => (
+                      <tr key={index} className="hover:bg-black/20">
+                        <td className="px-4 py-2 text-gray-200">
+                          {peer.name || "Unknown"}
+                        </td>
+                        <td className="px-4 py-2 text-gray-200">
+                          {peer.share || "N/A"}
+                        </td>
+                        <td className="px-4 py-2 text-gray-200">
+                          {peer.connection || "N/A"}
+                        </td>
+                        <td className="px-4 py-2 text-gray-200">
+                          {peer.port || ""}
+                        </td>
+                        <td className="px-4 py-2 text-gray-200">
+                          {fmt_last_seen_on(peer.last_seen)}
+                        </td>
+                        <td className="px-4 py-2 text-gray-200">
+                          {peer.ip || "N/A"}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan="6"
+                        className="px-4 py-2 text-center text-gray-200"
+                      >
+                        No peers found
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

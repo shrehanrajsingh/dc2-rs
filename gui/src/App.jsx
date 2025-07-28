@@ -6,6 +6,7 @@ import { useAppStore } from "./store/useAppStore";
 import Home from "./components/Home";
 import { envBackendExec } from "./store/envVars";
 import Footer from "./footer";
+import { check_server_is_running, get_peers } from "./t-api/api";
 
 function App() {
   // const [greetMsg, setGreetMsg] = useState("");
@@ -16,10 +17,6 @@ function App() {
   //   setGreetMsg(await invoke("greet", { name }));
   // }
 
-  const check_server_is_running = async () => {
-    return await invoke("server_is_running", {});
-  };
-
   const page = useAppStore((state) => state.page);
   const setPage = useAppStore((state) => state.setPage);
 
@@ -27,7 +24,8 @@ function App() {
     home: <Home />,
   };
 
-  check_server_is_running();
+  // check_server_is_running();
+  // get_peers();
 
   return (
     <main className="container">
