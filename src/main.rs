@@ -11,6 +11,8 @@ use crate::discovery::{init_db, start_discovery};
 mod client;
 mod discovery;
 mod files;
+mod metadb;
+mod metalang;
 mod peer;
 mod protocol;
 mod server;
@@ -31,122 +33,58 @@ struct HelloMsg {
 async fn term_run() {
     let args: Vec<String> = std::env::args().collect();
     let mut curr_port = 0;
+    let mut dc2mp = "unset";
 
-    match args.as_slice() {
-        [_, cmd, port_str] if cmd == "server" => {
-            let port = port_str.parse().expect("Invalid port number");
-            curr_port = port;
-            let peers = start_discovery("Anonymous".to_string(), port).await;
-            server::run_server(port).await;
-        }
-        [_, cmd, port_str, head] if cmd == "server" && head == "head" => {
-            let port: u16 = port_str.parse().expect("Invalid port number");
-            if curr_port == 0 {}
-        }
-        [_, cmd, addr, subcmd] if cmd == "client" && subcmd == "file_list" => {
-            client::run_client(addr, RequestType::FileList, None).await;
-        }
-        [_, cmd, addr, subcmd, filename] if cmd == "client" && subcmd == "request_file" => {
-            client::run_client(addr, RequestType::RequestFile, Some(filename.to_string())).await;
-        }
-        [_, cmd, addr, subcmd, filepath] if cmd == "client" && subcmd == "send_file" => {
-            client::run_client(addr, RequestType::SendFile, Some(filepath.to_string())).await;
-        }
-        [_, cmd, subcmd, path] if cmd == "client" && subcmd == "list_peers" => {
-            let conn = init_db(path);
-            discovery::print_all_peers(&conn);
-        }
-        [_, cmd, addr, subcmd] if cmd == "client" && subcmd == "ping" => {
-            client::ping_peer(&addr).await;
-        }
-        // [_, cmd] if cmd == "session" => {
-        //     println!("Available commands:");
-        //     println!("  server <port>");
-        //     println!("  client <addr> file_list");
-        //     println!("  client <addr> request_file <filename>");
-        //     println!("  client <addr> send_file <filepath>");
-        //     println!("  client list_peers");
-        //     println!("  exit");
-        //     loop {
-        //         // print!("> ");
-        //         // io::stdout().flush().unwrap();
-        //         let mut input = String::new();
-        //         io::stdin().read_line(&mut input).unwrap();
-        //         let input = input.trim();
+    if args.len() > 1 {
+        dc2mp = &args[1];
+        let dc2meta_contents = std::fs::read_to_string(dc2mp).expect("Failed to read dc2meta file");
+        let ctx = metalang::Context::from_lang(dc2meta_contents);
 
-        //         if input == "exit" {
-        //             break;
-        //         }
-
-        //         let parts: Vec<&str> = input.split_whitespace().collect();
-        //         match parts.as_slice() {
-        //             ["server", port_str] => {
-        //                 let port = port_str.parse().expect("Invalid port number");
-        //                 tokio::spawn(async move {
-        //                     let peers = start_discovery("Node1".to_string(), port).await;
-        //                     server::run_server(port).await;
-        //                 });
-        //                 sleep(Duration::from_millis(50));
-        //             }
-        //             ["client", addr, "file_list"] => {
-        //                 let addr_str = addr.to_string();
-        //                 println!("Requesting file list from {}", addr);
-        //                 tokio::spawn(async move {
-        //                     client::run_client(&addr_str, RequestType::FileList, None).await;
-        //                 });
-        //             }
-        //             ["client", addr, "request_file", filename] => {
-        //                 let addr_str = addr.to_string();
-        //                 let filename_str = filename.to_string();
-        //                 println!("Requesting file {} from {}", filename, addr);
-        //                 tokio::spawn(async move {
-        //                     client::run_client(
-        //                         &addr_str,
-        //                         RequestType::RequestFile,
-        //                         Some(filename_str),
-        //                     )
-        //                     .await;
-        //                 });
-        //             }
-        //             ["client", addr, "send_file", filepath] => {
-        //                 let addr_str = addr.to_string();
-        //                 let filepath_str = filepath.to_string();
-        //                 println!("Sending file {} to {}", filepath, addr);
-        //                 tokio::spawn(async move {
-        //                     client::run_client(
-        //                         &addr_str,
-        //                         RequestType::SendFile,
-        //                         Some(filepath_str),
-        //                     )
-        //                     .await;
-        //                 });
-        //             }
-        //             ["client", "list_peers"] => {
-        //                 discovery::print_all_peers(&conn);
-        //             }
-        //             ["help"] => {
-        //                 println!("Available commands:");
-        //                 println!("  server <port>");
-        //                 println!("  client <addr> file_list");
-        //                 println!("  client <addr> request_file <filename>");
-        //                 println!("  client <addr> send_file <filepath>");
-        //                 println!("  exit");
-        //             }
-        //             _ => {
-        //                 println!("Unknown command. Type 'help' for usage information.");
-        //             }
-        //         }
-        //     }
-        // }
-        _ => {
-            eprintln!("Usage:");
-            eprintln!("  dc2-rs server port");
-            eprintln!("  dc2-rs client <addr> file_list");
-            eprintln!("  dc2-rs client <addr> request_file <filename>");
-            eprintln!("  dc2-rs client list_peers /path/to/database");
-            eprintln!("  dc2-rs client <addr> send_file <filepath>");
-            eprintln!("  dc2-rs client <addr> ping");
+        match args.as_slice() {
+            [_, _, cmd, port_str] if cmd == "server" => {
+                let port = port_str.parse().expect("Invalid port number");
+                curr_port = port;
+                let peers = start_discovery("Anonymous".to_string(), port).await;
+                server::run_server(port).await;
+            }
+            [_, _, cmd, port_str, head] if cmd == "server" && head == "head" => {
+                let port: u16 = port_str.parse().expect("Invalid port number");
+                curr_port = port;
+            }
+            [_, _, cmd, addr, subcmd] if cmd == "client" && subcmd == "file_list" => {
+                client::run_client(addr, RequestType::FileList, None).await;
+            }
+            [_, _, cmd, addr, subcmd, filename] if cmd == "client" && subcmd == "request_file" => {
+                client::run_client(addr, RequestType::RequestFile, Some(filename.to_string()))
+                    .await;
+            }
+            [_, _, cmd, addr, subcmd, filepath] if cmd == "client" && subcmd == "send_file" => {
+                client::run_client(addr, RequestType::SendFile, Some(filepath.to_string())).await;
+            }
+            [_, _, cmd, subcmd] if cmd == "client" && subcmd == "list_peers" => {
+                let conn = init_db(match ctx.get_var("Database") {
+                    metalang::Value::Str(s) => s,
+                    _ => unreachable!(),
+                });
+                discovery::print_all_peers(&conn);
+            }
+            [_, _, cmd, addr, subcmd] if cmd == "client" && subcmd == "ping" => {
+                client::ping_peer(&addr).await;
+            }
+            _ => {
+                eprintln!("Usage:");
+                eprintln!("  dc2-rs /path/to/.dc2.meta server port");
+                eprintln!("  dc2-rs /path/to/.dc2.meta client <addr> file_list");
+                eprintln!("  dc2-rs /path/to/.dc2.meta client <addr> request_file <filename>");
+                eprintln!("  dc2-rs /path/to/.dc2.meta client list_peers /path/to/database");
+                eprintln!("  dc2-rs /path/to/.dc2.meta client <addr> send_file <filepath>");
+                eprintln!("  dc2-rs /path/to/.dc2.meta client <addr> ping");
+            }
         }
+    } else {
+        eprintln!(
+            "Missing arguments. Use the format: dc2-rs /path/to/.dc2.meta [command] [args...]"
+        );
     }
 }
 

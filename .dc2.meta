@@ -1,5 +1,6 @@
-Use Shared = ./hostfile
-Use Download = ./dump
+Use Shared = ./hostfile/
+Use Download = ./dump/
+Use Database = ./database/
 
 Begin Mount on Download {
     /path/to/some/other/download
